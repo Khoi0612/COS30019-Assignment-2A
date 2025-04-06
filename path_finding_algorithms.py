@@ -11,6 +11,8 @@ from collections import deque
 
 from utils import *
 
+import matplotlib.pyplot as plt
+
 
 class Problem:
     """The abstract class for a formal problem. You should subclass
@@ -288,15 +290,19 @@ class Graph:
 
 
 def load_graph_from_file(filename):
+
+    # Set up data structures
     nodes = {}
     edges = {}
     origin = None
     destinations = []
     graph_map = Graph()
 
+    # Open and read the text file
     with open(filename, 'r') as file:
         lines = file.readlines()
 
+    # Divide the lines from the text file into sections and name each section by its component
     section = None
     for line in lines:
         line = line.strip()
@@ -316,12 +322,15 @@ def load_graph_from_file(filename):
         if not line:
             continue
 
+        # Assign each section's lines with each element in the corresponding data structure
         if section == "nodes":
+            # e.g. {1:(2,3)}
             parts = line.split(":")
             node = int(parts[0])
             coords = list(map(int, parts[1].strip(" ()").split(',')))
             nodes[node] = coords
         elif section == "edges":
+            # e.g. {(1,2):3}
             parts = line.split(":")
             n1, n2 = map(int, parts[0].strip(" ()").split(','))
             cost = int(parts[1])          
@@ -330,16 +339,90 @@ def load_graph_from_file(filename):
             origin = int(line)
         elif section == "destinations":
             destinations = list(map(int, line.split(';')))
-       
+
+    # Create the graph from these sections
     for node in nodes:
         for n, cost in edges.items():
             if n[0] == node:
-                graph_map.connect1(n[0], n[1], cost)
-    
+                graph_map.connect1(n[0], n[1], cost) # One way connection
     graph_map.locations = nodes       
 
     return graph_map, origin, destinations
 
+def draw_solution(graph_map, origin, destinations, solution_path, title):
+
+    # Set up Figure
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    # Set up Grid
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 10)
+    plt.grid(True)
+    ax.set_aspect('equal')
+    
+    # Draw vertices
+    vertices = graph_map.locations
+    for name, (x, y) in vertices.items():
+        if name == origin:
+            color = 'limegreen'
+        elif name in destinations:
+            color = 'orange'
+        else:
+            color = 'skyblue'
+
+        ax.plot(x, y, 'o', markersize=10, color=color)
+        label = str(name)
+        if name == origin:
+            label += " (Origin)"
+        elif name in destinations:
+            label += " (Dest)"
+        ax.text(x + 0.1, y + 0.1, label, fontsize=12, 
+               bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'),
+               zorder=4)
+
+    # Draw edges
+    edges = {}
+    for node1 in graph_map.graph_dict:
+        for node2, cost in graph_map.graph_dict[node1].items():
+            edges[(node1, node2)] = cost
+    edge_set = set(edges.keys())
+    drawn = set() # Track whether the edge has been drawn 
+    for (src, dst) in edges.keys():
+        x0, y0 = vertices[src]
+        x1, y1 = vertices[dst]
+        
+        if (dst, src) in edge_set and (dst, src) not in drawn:
+            # Undirected
+            ax.plot([x0, x1], [y0, y1], 'k-', lw=1.5)
+            ax.plot(x0, y0, 'o', markersize=5, color='black')
+            ax.plot(x1, y1, 'o', markersize=5, color='black')
+
+        elif (dst, src) not in edge_set:
+            # Directed
+            ax.annotate("",
+                       xy=(x1, y1), xycoords='data',
+                       xytext=(x0, y0), textcoords='data',
+                       arrowprops=dict(arrowstyle="->", color='black', lw=1.5, mutation_scale=20))
+
+        drawn.add((src, dst))
+
+    # Draw Solution Path
+    if solution_path and len(solution_path) > 1:
+        for i in range(len(solution_path) - 1):
+            src = solution_path[i]
+            dst = solution_path[i + 1]
+            
+            x0, y0 = vertices[src]
+            x1, y1 = vertices[dst]
+            
+            if (src, dst) in edges:
+                ax.annotate("",
+                            xy=(x1, y1), xycoords='data',
+                            xytext=(x0, y0), textcoords='data',
+                            arrowprops=dict(arrowstyle="->", color='red', lw=3, mutation_scale=20))
+                    
+    plt.title(title)
+    plt.show()
 
 class GraphProblem(Problem):
     """The problem of searching a graph from one node to another."""
@@ -385,16 +468,24 @@ class GraphProblem(Problem):
          
         else:
             return np.inf
-            
+
 
 def runGraphSeacrh():
+
+    # Extract test file and method from CLI arguments
     filename = sys.argv[1]
     method = sys.argv[2]
+
+    # Extract from file and pass into GraphProblem constructor
     graph_map, origin, dest = load_graph_from_file(filename)
     prob = GraphProblem(origin, dest, graph_map)
+
+    # Initialize result variables
     result = None
+    path = list()
     no_nodes_explored = 0
 
+    # Check for method used
     if method == "DFS":
         result, no_nodes_explored = depth_first_graph_search(prob)      
     elif method == "BFS":
@@ -404,7 +495,15 @@ def runGraphSeacrh():
     elif method == "AS":
         result, no_nodes_explored = astar_search(prob, lambda n: prob.h(n), display=True)
 
-    print(f"{filename} {method}\n{result.solution()[-1]} {no_nodes_explored}\n{result.path()}")
+    # Extract solution path
+    for p in result.path():
+        path.append(p.state)
+
+    # Show in CLI
+    print(f"{filename} {method}\n{result.solution()[-1]} {no_nodes_explored}\n{path}")
+
+    # Draw the solution
+    draw_solution(graph_map, origin, dest, path, f"Solutions for {filename.removesuffix(".txt")} based on {method}")
 
 
 runGraphSeacrh()
