@@ -162,12 +162,13 @@ def breadth_first_graph_search(problem):
     single line as below:
     return graph_search(problem, FIFOQueue())
     """
+    start_time = time.perf_counter()
     node = Node(problem.initial)
     if problem.goal_test(node.state):
         return node, len(explored), (time.perf_counter() - start_time) * 1000
     frontier = deque([node])
     explored = set()
-    start_time = time.perf_counter()
+    
     while frontier:
         node = frontier.popleft()
         explored.add(node.state)
@@ -178,6 +179,39 @@ def breadth_first_graph_search(problem):
                 frontier.append(child)
     return None, len(explored), (time.perf_counter() - start_time) * 1000
 
+def uniform_cost_search(problem):
+    """Expands the node with the lowest total path cost."""
+    start_time = time.perf_counter()
+    node = Node(problem.initial)
+    if problem.goal_test(node.state):
+        return node, 0, (time.perf_counter() - start_time) * 1000
+
+    frontier = []
+    heapq.heappush(frontier, (node.path_cost, node))
+    explored = set()
+    nodes_expanded = 0
+
+    while frontier:
+        cost, node = heapq.heappop(frontier)
+        nodes_expanded += 1
+
+        if problem.goal_test(node.state):
+            return node, nodes_expanded, (time.perf_counter() - start_time) * 1000 
+
+        explored.add(node.state)
+
+        for child in node.expand(problem):
+            if child.state not in explored and all(child.state != existing.state for _, existing in frontier):
+                heapq.heappush(frontier, (child.path_cost, child))
+            else:
+                # Replace node in frontier if child has a lower cost
+                for i, (c, existing) in enumerate(frontier):
+                    if existing.state == child.state and child.path_cost < existing.path_cost:
+                        frontier[i] = (child.path_cost, child)
+                        heapq.heapify(frontier)
+                        break
+
+    return None, nodes_expanded, (time.perf_counter() - start_time) * 1000
 
 def best_first_graph_search(problem, f, display=False):
     """Search the nodes with the lowest f scores first.
@@ -462,6 +496,8 @@ def run_algorithm(method, problem):
         result_node, explored, runtime_ms = best_first_graph_search(problem, lambda n: problem.h(n), display=True)
     elif method == "AS":
         result_node, explored, runtime_ms = astar_search(problem, lambda n: problem.h(n), display=True)
+    elif method == "CUS1":
+        result_node, explored, runtime_ms = uniform_cost_search(problem)
     elif method == "CUS2":
         result_node, explored, runtime_ms = iterative_deepening_astar_search(problem, lambda n: problem.h(n))
     else:
