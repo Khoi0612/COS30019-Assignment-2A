@@ -521,7 +521,7 @@ def runGraphSeacrh():
         results = {}
         paths = {}
         algorithms_to_run = (
-            ["DFS", "BFS", "GBFS", "AS", "CUS2"] if method == "-a" else [method]
+            ["DFS", "BFS", "GBFS", "AS", "CUS1", "CUS2"] if method == "-a" else [method]
         )
 
         for i, algo in enumerate(algorithms_to_run):
