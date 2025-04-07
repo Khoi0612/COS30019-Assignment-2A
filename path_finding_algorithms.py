@@ -11,7 +11,9 @@ from collections import deque
 
 from utils import *
 
-import matplotlib.pyplot as plt
+import glob
+from graph_gui import *
+import time
 
 
 class Problem:
@@ -142,16 +144,16 @@ def depth_first_graph_search(problem):
     If two paths reach a state, only use the first one.
     """
     frontier = [(Node(problem.initial))]  # Stack
-
     explored = set()
+    start_time = time.perf_counter()
     while frontier:
         node = frontier.pop()
         if problem.goal_test(node.state):
-            return node, len(explored)
+            return node, len(explored), (time.perf_counter() - start_time) * 1000
         explored.add(node.state)
         frontier.extend(child for child in node.expand(problem)
                         if child.state not in explored and child not in frontier)
-    return len(explored)
+    return None, len(explored), (time.perf_counter() - start_time) * 1000
 
 
 def breadth_first_graph_search(problem):
@@ -162,18 +164,19 @@ def breadth_first_graph_search(problem):
     """
     node = Node(problem.initial)
     if problem.goal_test(node.state):
-        return node
+        return node, len(explored), (time.perf_counter() - start_time) * 1000
     frontier = deque([node])
     explored = set()
+    start_time = time.perf_counter()
     while frontier:
         node = frontier.popleft()
         explored.add(node.state)
         for child in node.expand(problem):
             if child.state not in explored and child not in frontier:
                 if problem.goal_test(child.state):
-                    return child, len(explored)
+                    return child, len(explored), (time.perf_counter() - start_time) * 1000
                 frontier.append(child)
-    return len(explored)
+    return None, len(explored), (time.perf_counter() - start_time) * 1000
 
 
 def best_first_graph_search(problem, f, display=False):
@@ -189,12 +192,13 @@ def best_first_graph_search(problem, f, display=False):
     frontier = PriorityQueue('min', f)
     frontier.append(node)
     explored = set()
+    start_time = time.perf_counter()
     while frontier:
         node = frontier.pop()
         if problem.goal_test(node.state):
             if display:
                 print(len(explored), "paths have been expanded and", len(frontier), "paths remain in the frontier")
-            return node, len(explored)
+            return node, len(explored), (time.perf_counter() - start_time) * 1000
         explored.add(node.state)
         for child in node.expand(problem):
             if child.state not in explored and child not in frontier:
@@ -203,7 +207,7 @@ def best_first_graph_search(problem, f, display=False):
                 if f(child) < frontier[child]:
                     del frontier[child]
                     frontier.append(child)
-    return len(explored)
+    return None, len(explored), (time.perf_counter() - start_time) * 1000
 
 # ______________________________________________________________________________
 # Informed (Heuristic) Search
@@ -228,6 +232,59 @@ def astar_search(problem, h=None, display=False):
 
 # ______________________________________________________________________________
 
+
+def iterative_deepening_astar_search(problem, h):
+
+    h = memoize(h or problem.h, 'h')
+
+    def f(node):
+        return node.path_cost + h(node)
+    
+    nodes_explored = [0]
+    
+    def recursive_dls_with_f_value(node, problem, f_limit):
+        nodes_explored[0] += 1
+        f_value = f(node)       
+        if f_value > f_limit:
+            return 'cutoff', f_value           
+        if problem.goal_test(node.state):
+            return node, None
+            
+        next_f = float('inf')
+        
+        for child in node.expand(problem):
+            result, new_f = recursive_dls_with_f_value(child, problem, f_limit)
+            
+            if result == 'cutoff':
+                next_f = min(next_f, new_f)
+            elif result is not None:
+                return result, None
+                
+        return 'cutoff', next_f if next_f < float('inf') else None
+    
+    initial_node = Node(problem.initial)
+    threshold = f(initial_node)
+    total_nodes_explored = 0
+    start_time = time.perf_counter()
+
+    while True:
+        nodes_explored[0] = 0
+        result, next_threshold = recursive_dls_with_f_value(initial_node, problem, threshold)
+        total_nodes_explored += nodes_explored[0]
+
+        if result != 'cutoff':
+            return result, total_nodes_explored, (time.perf_counter() - start_time) * 1000
+            
+        if next_threshold is None:
+            return None, total_nodes_explored, (time.perf_counter() - start_time) * 1000
+            
+        threshold = next_threshold
+
+
+# ______________________________________________________________________________
+# IDA* 
+
+# ______________________________________________________________________________
 
 
 # ______________________________________________________________________________
@@ -349,81 +406,6 @@ def load_graph_from_file(filename):
 
     return graph_map, origin, destinations
 
-def draw_solution(graph_map, origin, destinations, solution_path, title):
-
-    # Set up Figure
-    fig, ax = plt.subplots(figsize=(8, 8))
-
-    # Set up Grid
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 10)
-    plt.grid(True)
-    ax.set_aspect('equal')
-    
-    # Draw vertices
-    vertices = graph_map.locations
-    for name, (x, y) in vertices.items():
-        if name == origin:
-            color = 'limegreen'
-        elif name in destinations:
-            color = 'orange'
-        else:
-            color = 'skyblue'
-
-        ax.plot(x, y, 'o', markersize=10, color=color)
-        label = str(name)
-        if name == origin:
-            label += " (Origin)"
-        elif name in destinations:
-            label += " (Dest)"
-        ax.text(x + 0.1, y + 0.1, label, fontsize=12, 
-               bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'),
-               zorder=4)
-
-    # Draw edges
-    edges = {}
-    for node1 in graph_map.graph_dict:
-        for node2, cost in graph_map.graph_dict[node1].items():
-            edges[(node1, node2)] = cost
-    edge_set = set(edges.keys())
-    drawn = set() # Track whether the edge has been drawn 
-    for (src, dst) in edges.keys():
-        x0, y0 = vertices[src]
-        x1, y1 = vertices[dst]
-        
-        if (dst, src) in edge_set and (dst, src) not in drawn:
-            # Undirected
-            ax.plot([x0, x1], [y0, y1], 'k-', lw=1.5)
-            ax.plot(x0, y0, 'o', markersize=5, color='black')
-            ax.plot(x1, y1, 'o', markersize=5, color='black')
-
-        elif (dst, src) not in edge_set:
-            # Directed
-            ax.annotate("",
-                       xy=(x1, y1), xycoords='data',
-                       xytext=(x0, y0), textcoords='data',
-                       arrowprops=dict(arrowstyle="->", color='black', lw=1.5, mutation_scale=20))
-
-        drawn.add((src, dst))
-
-    # Draw Solution Path
-    if solution_path and len(solution_path) > 1:
-        for i in range(len(solution_path) - 1):
-            src = solution_path[i]
-            dst = solution_path[i + 1]
-            
-            x0, y0 = vertices[src]
-            x1, y1 = vertices[dst]
-            
-            if (src, dst) in edges:
-                ax.annotate("",
-                            xy=(x1, y1), xycoords='data',
-                            xytext=(x0, y0), textcoords='data',
-                            arrowprops=dict(arrowstyle="->", color='red', lw=3, mutation_scale=20))
-                    
-    plt.title(title)
-    plt.show()
-
 class GraphProblem(Problem):
     """The problem of searching a graph from one node to another."""
 
@@ -470,41 +452,64 @@ class GraphProblem(Problem):
             return np.inf
 
 
-def runGraphSeacrh():
+def run_algorithm(method, problem):
 
-    # Extract test file and method from CLI arguments
-    filename = sys.argv[1]
-    method = sys.argv[2]
-
-    # Extract from file and pass into GraphProblem constructor
-    graph_map, origin, dest = load_graph_from_file(filename)
-    prob = GraphProblem(origin, dest, graph_map)
-
-    # Initialize result variables
-    result = None
-    path = list()
-    no_nodes_explored = 0
-
-    # Check for method used
     if method == "DFS":
-        result, no_nodes_explored = depth_first_graph_search(prob)      
+        result_node, explored, runtime_ms = depth_first_graph_search(problem)
     elif method == "BFS":
-        result, no_nodes_explored = breadth_first_graph_search(prob)
+        result_node, explored, runtime_ms = breadth_first_graph_search(problem)
     elif method == "GBFS":
-        result, no_nodes_explored = best_first_graph_search(prob, lambda n: prob.h(n), display=True)
+        result_node, explored, runtime_ms = best_first_graph_search(problem, lambda n: problem.h(n), display=True)
     elif method == "AS":
-        result, no_nodes_explored = astar_search(prob, lambda n: prob.h(n), display=True)
+        result_node, explored, runtime_ms = astar_search(problem, lambda n: problem.h(n), display=True)
+    elif method == "CUS2":
+        result_node, explored, runtime_ms = iterative_deepening_astar_search(problem, lambda n: problem.h(n))
+    else:
+        raise ValueError(f"Unsupported method: {method}")
 
-    # Extract solution path
-    for p in result.path():
-        path.append(p.state)
+    return result_node, explored, runtime_ms
 
-    # Show in CLI
-    print(f"{filename} {method}\n{result.solution()[-1]} {no_nodes_explored}\n{path}")
+def runGraphSeacrh():
+    # Load file(s) and method from CLI
+    method = sys.argv[2]
+    filenames = glob.glob("*.txt") if sys.argv[1] == "-a" else [sys.argv[1]]
+    
+    # Init GUI
+    root = tk.Tk()
+    app = GraphGUI(root)
 
-    # Draw the solution
-    draw_solution(graph_map, origin, dest, path, f"Solutions for {filename.removesuffix(".txt")} based on {method}")
+    for file in filenames:
+        graph_map, origin, dest = load_graph_from_file(file)
+        problem = GraphProblem(origin, dest, graph_map)
 
+        results = {}
+        paths = {}
+        algorithms_to_run = (
+            ["DFS", "BFS", "GBFS", "AS", "CUS2"] if method == "-a" else [method]
+        )
+
+        for i, algo in enumerate(algorithms_to_run):
+            result_node, explored, runtime = run_algorithm(algo, problem)
+
+            results[i] = {
+                "result": result_node,
+                "no_nodes_explored": explored,
+                "runtime": runtime,
+                "algorithm": algo
+            }
+
+            path = [p.state for p in result_node.path()]
+            paths[i] = path
+
+            print(f"{file} {algo}\n{result_node.solution()[-1]} {explored}\n{path}")
+
+            title = f"Solutions for {file.removesuffix('.txt')} based on {algo}"
+            metrics = {"nodes_explored": explored, "runtime": runtime, "algorithm": algo}
+            app.draw_solution(graph_map, origin, dest, path, title, metrics)
+
+    # Graceful exit
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
+    root.mainloop()
 
 runGraphSeacrh()
 

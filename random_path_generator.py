@@ -1,13 +1,20 @@
 import random
 import os
-import matplotlib.pyplot as plt
+import sys
+import tkinter as tk
+from graph_gui import *
 
 def random_graph():
 
     # Generate random nodes of coordinates from 1 - 10
     nodes = {}
-    for i in range(10):
-     nodes.setdefault(i + 1, (random.randint(0, 10), random.randint(0, 10)))
+    i = 0
+    while i < 5:
+        x = random.randint(0, 10)
+        y = random.randint(0, 10)
+        if (x, y) not in list(nodes.keys()):
+            nodes.setdefault(i + 1, (x, y))
+            i+=1
 
     # Generate random edges from random nodes with random costs
     edges = {}
@@ -36,7 +43,7 @@ def random_graph():
     origin=random.randint(1, len(nodes))
 
     # Generate random destinations list
-    number_of_destinations=random.randint(1, 5) # Randomize the number of destination in the list
+    number_of_destinations=random.randint(1, len(nodes) - 3) # Randomize the number of destination in the list
     destinations=list()
     while len(destinations) < number_of_destinations:
         destination=random.choice(list(nodes.keys())) # Choose random node to be a destination
@@ -93,72 +100,48 @@ def export_graph(content, base_name="test_"):
 
     return filename
 
-def draw_graph(vertices, edges, origin, destinations, title):
-
-    # Set up Figure
-    fig, ax = plt.subplots(figsize=(8, 8))
-
-    # Set up Grid
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 10)
-    plt.grid(True)
-    ax.set_aspect('equal')
-    
-    # Draw vertices
-    for name, (x, y) in vertices.items():
-        if name == origin:
-            color = 'limegreen'
-        elif name in destinations:
-            color = 'orange'
-        else:
-            color = 'skyblue'
-
-        ax.plot(x, y, 'o', markersize=10, color=color)  # Higher zorder to display on top
-        label = str(name)
-        if name == origin:
-            label += " (Origin)"
-        elif name in destinations:
-            label += " (Dest)"
-        ax.text(x + 0.1, y + 0.1, label, fontsize=12, 
-               bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'),
-               zorder=4)  # Text with background
-
-    # Draw edges
-    edge_set = set(edges.keys())
-    drawn = set() # Track whether the edge has been drawn 
-    for (src, dst) in edges.keys():
-        x0, y0 = vertices[src]
-        x1, y1 = vertices[dst]
-        
-        if (dst, src) in edge_set and (dst, src) not in drawn:
-            # Undirected
-            ax.plot([x0, x1], [y0, y1], 'k-', lw=1.5)
-            ax.plot(x0, y0, 'o', markersize=5, color='black')
-            ax.plot(x1, y1, 'o', markersize=5, color='black')
-
-        elif (dst, src) not in edge_set:
-            # Directed
-            ax.annotate("",
-                       xy=(x1, y1), xycoords='data',
-                       xytext=(x0, y0), textcoords='data',
-                       arrowprops=dict(arrowstyle="->", color='black', lw=1.5, mutation_scale=20))
-
-        drawn.add((src, dst))
-
-    plt.title(title)
-    plt.show()
-
 
 def runGenerator():
+    no_of_tests = int(sys.argv[1])
+    i = 0
+    maps = {}
 
-    # Extract components from randomized graph
-    map_nodes, map_edges, map_origin, map_dests, map_str = random_graph()
+    # Looping through the number of tests generated
+    while i < no_of_tests:
 
-    # Extraxt title from exported filename
-    filename = export_graph(map_str).removesuffix(".txt")
-    title = f"Graph {filename}"
+        # Extract components from randomized graph
+        map_nodes, map_edges, map_origin, map_dests, map_str = random_graph()
 
-    # Draw graph
-    draw_graph(map_nodes, map_edges, map_origin, map_dests, title)
+        # Extraxt title from exported filename
+        filename = export_graph(map_str).removesuffix(".txt")
+        title = f"Graph {filename}"
+
+        # Appends the components into the dictionary
+        maps[i + 1] = dict(nodes = map_nodes, 
+                           edges = map_edges,
+                           origin = map_origin,
+                           dests = map_dests,
+                           title = title) # {1:{nodes:A, edges:B, ...}, 2:{...}, ...}       
+
+        # Increment index
+        i+=1
+
+    # Extract whether users wants to draw the generated graph
+    if len(sys.argv) > 2:
+        if sys.argv[2] == "-d":
+
+            # Initiate Tkinter root
+            root = tk.Tk()
+            app = GraphGUI(root)
+            
+            # Draw graph for each item in dictionary 
+            for id, map in maps.items():               
+                app.draw_graph(map["nodes"], map["edges"], map["origin"], map["dests"], map["title"])           
+
+            # Stop the program after the app closed    
+            root.protocol("WM_DELETE_WINDOW", app.on_closing)
+
+            # Start Tkinter event loop
+            root.mainloop()
 
 runGenerator()
