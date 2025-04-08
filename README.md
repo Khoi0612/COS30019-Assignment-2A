@@ -1,5 +1,5 @@
-# COS30019-Assignment-2A
-COS30019 Assignment 2A path search problems.
+# Path-Finding
+Algorithms implemnetation for path search problems and random test case generator.
 
 Files:
     1. path_finding_algorithms.py: contains implemnetation and execution of all algorithms.
