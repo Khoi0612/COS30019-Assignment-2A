@@ -277,24 +277,28 @@ def iterative_deepening_astar_search(problem, h):
     nodes_explored = [0]
     
     def recursive_dls_with_f_value(node, problem, f_limit):
-        nodes_explored[0] += 1
-        f_value = f(node)       
-        if f_value > f_limit:
-            return 'cutoff', f_value           
-        if problem.goal_test(node.state):
-            return node, None
-            
-        next_f = float('inf')
-        
-        for child in node.expand(problem):
-            result, new_f = recursive_dls_with_f_value(child, problem, f_limit)
-            
-            if result == 'cutoff':
-                next_f = min(next_f, new_f)
-            elif result is not None:
-                return result, None
+        try:
+            nodes_explored[0] += 1
+            f_value = f(node)       
+            if f_value > f_limit:
+                return 'cutoff', f_value           
+            if problem.goal_test(node.state):
+                return node, None
                 
-        return 'cutoff', next_f if next_f < float('inf') else None
+            next_f = float('inf')
+            
+            for child in node.expand(problem):
+                result, new_f = recursive_dls_with_f_value(child, problem, f_limit)
+                
+                if result == 'cutoff':
+                    next_f = min(next_f, new_f if new_f is not None else float('inf'))
+                elif result is not None:
+                    return result, None
+                    
+            return 'cutoff', next_f if next_f < float('inf') else None
+    
+        except RecursionError:
+            return None, None  # Signal recursion failure
     
     initial_node = Node(problem.initial)
     threshold = f(initial_node)
@@ -309,7 +313,7 @@ def iterative_deepening_astar_search(problem, h):
         if result != 'cutoff':
             return result, total_nodes_explored, (time.perf_counter() - start_time) * 1000
             
-        if next_threshold is None:
+        if result is None or next_threshold is None:
             return None, total_nodes_explored, (time.perf_counter() - start_time) * 1000
             
         threshold = next_threshold
@@ -519,7 +523,8 @@ def runGraphSeacrh():
         problem = GraphProblem(origin, dest, graph_map)
 
         results = {}
-        paths = {}
+        path = []
+        final_node = ""
         algorithms_to_run = (
             ["DFS", "BFS", "GBFS", "AS", "CUS1", "CUS2"] if method == "-a" else [method]
         )
@@ -534,10 +539,17 @@ def runGraphSeacrh():
                 "algorithm": algo
             }
 
-            path = [p.state for p in result_node.path()]
-            paths[i] = path
-
-            print(f"{file} {algo}\n{result_node.solution()[-1]} {explored}\n{path}")
+            if result_node is None:
+                path = None
+                final_node = "No solution"
+            elif result_node is not None and result_node.state != origin:
+                path = [p.state for p in result_node.path()]
+                final_node = result_node.solution()[-1]
+            elif result_node.state == origin:
+                path = None
+                final_node = origin
+            
+            print(f"{file} {algo}\n{final_node} {explored}\n{path}")
 
             title = f"Solutions for {file.removesuffix('.txt')} based on {algo}"
             metrics = {"nodes_explored": explored, "runtime": runtime, "algorithm": algo}

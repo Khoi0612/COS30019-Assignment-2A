@@ -68,8 +68,8 @@ class GraphGUI:
         fig, ax = plt.subplots(figsize=(8, 8))
 
         # Set up Grid
-        ax.set_xlim(0, 10)
-        ax.set_ylim(0, 10)
+        ax.set_xlim(-1, 11)
+        ax.set_ylim(-1, 11)
         ax.grid(True)
         ax.set_aspect('equal')
         
@@ -138,8 +138,8 @@ class GraphGUI:
         ax_graph = fig.add_subplot(gs[0])
         
         # Set up Grid
-        ax_graph.set_xlim(0, 10)
-        ax_graph.set_ylim(0, 10)
+        ax_graph.set_xlim(-1, 11)
+        ax_graph.set_ylim(-1, 11)
         ax_graph.grid(True)
         ax_graph.set_aspect('equal')
         

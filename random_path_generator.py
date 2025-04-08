@@ -3,6 +3,7 @@ import os
 import sys
 import tkinter as tk
 from graph_gui import *
+import math
 
 def random_graph():
 
@@ -18,26 +19,26 @@ def random_graph():
 
     # Generate random edges from random nodes with random costs
     edges = {}
-    for node in nodes:
-        number_of_connected_nodes = random.randint(1, 3) # Number of nodes that can be visted from current node
-        connected_count = 0 # Number of nodes that have been connected
-        while connected_count < number_of_connected_nodes:
-            connected_node = random.randint(1, len(nodes)) # Randomized which node can be visited
-            cost_forward = random.randint(1, 10) # Randomized cost
-            directed = bool(random.getrandbits(1)) # Randomized whether the edge is directed
-            
-            # Avoid self-connected: {(x,x):c}
-            if connected_node == node:
-                continue
+    for node, (x0, y0) in nodes.items():
+        # Avoid self-connected: {(x,x):c} and duplicate edges with potentially different cost: {(x,y):c1, (x,y):c2} 
+        possible_nodes = [n for n in nodes if n != node and (node, n) not in edges and (n, node) not in edges]
+        random.shuffle(possible_nodes)  # Randomize connection order
+        
+        number_of_connected_nodes = min(random.randint(0, 3), len(possible_nodes))
+        
+        for i in range(number_of_connected_nodes):
+            connected_node = possible_nodes[i]
+            (x1, y1) = nodes[connected_node]
+            distance = math.sqrt((x1 - x0)**2 + (y1 - y0)**2)
+            cost_forward = math.ceil(distance)*2
+            different_cost = bool(random.getrandbits(1))
+            directed = bool(random.getrandbits(1))
 
-            # Avoid duplicate edges with potentially different cost: {(x,y):c1, (x,y):c2}    
-            if (node, connected_node) not in edges and (connected_node, node) not in edges:
-                edges[(node, connected_node)] = cost_forward
-                connected_count += 1
-                
-                if not directed:
-                    cost_backward = random.randint(1, 10) # Cost backward can be different from cost forward
-                    edges[(connected_node, node)] = cost_backward
+            edges[(node, connected_node)] = cost_forward
+            
+            if not directed:
+                cost_backward = cost_forward if different_cost else cost_forward + 1
+                edges[(connected_node, node)] = cost_backward
 
     # Generate random origin node
     origin=random.randint(1, len(nodes))
