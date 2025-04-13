@@ -236,9 +236,6 @@ class GraphGUI:
         table.set_fontsize(10)
         table.scale(1.2, 2)
         
-        # Adjust spacing
-        #plt.tight_layout()
-        
         # Store the figure
         self.graphs.append((fig, title))
         
