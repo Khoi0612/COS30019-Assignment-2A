@@ -164,10 +164,10 @@ def breadth_first_graph_search(problem):
     """
     start_time = time.perf_counter()
     node = Node(problem.initial)
+    explored = set()
     if problem.goal_test(node.state):
         return node, len(explored), (time.perf_counter() - start_time) * 1000
     frontier = deque([node])
-    explored = set()
     
     while frontier:
         node = frontier.popleft()
@@ -183,12 +183,12 @@ def uniform_cost_search(problem):
     """Expands the node with the lowest total path cost."""
     start_time = time.perf_counter()
     node = Node(problem.initial)
+    explored = set()
     if problem.goal_test(node.state):
         return node, 0, (time.perf_counter() - start_time) * 1000
 
     frontier = []
     heapq.heappush(frontier, (node.path_cost, node))
-    explored = set()
     nodes_expanded = 0
 
     while frontier:
@@ -304,6 +304,9 @@ def iterative_deepening_astar_search(problem, h):
     threshold = f(initial_node)
     total_nodes_explored = 0
     start_time = time.perf_counter()
+    
+    if problem.goal_test(initial_node.state):
+        return initial_node, total_nodes_explored, (time.perf_counter() - start_time) * 1000
 
     while True:
         nodes_explored[0] = 0
@@ -530,6 +533,7 @@ def runGraphSeacrh():
         )
 
         for i, algo in enumerate(algorithms_to_run):
+            path_cost = None
             result_node, explored, runtime = run_algorithm(algo, problem)
 
             results[i] = {
@@ -545,11 +549,12 @@ def runGraphSeacrh():
             elif result_node is not None and result_node.state != origin:
                 path = [p.state for p in result_node.path()]
                 final_node = result_node.solution()[-1]
+                path_cost = result_node.path_cost
             elif result_node.state == origin:
                 path = None
                 final_node = origin
             
-            print(f"{file} {algo}\n{final_node} {explored}\n{path}")
+            print(f"{file} {algo}\n{final_node} {explored} {path_cost}\n{runtime:.2f}ms\n{path}")
 
             title = f"Solutions for {file.removesuffix('.txt')} based on {algo}"
             metrics = {"nodes_explored": explored, "runtime": runtime, "algorithm": algo}
