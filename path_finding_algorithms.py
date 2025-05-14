@@ -48,7 +48,7 @@ class Problem:
         list, as specified in the constructor. Override this method if
         checking against a single self.goal is not enough."""
         if isinstance(self.goal, list):
-            return is_in(state, self.goal)
+            return state in self.goal
         else:
             return state == self.goal
 
@@ -425,13 +425,13 @@ def load_graph_from_file(filename):
             # e.g. {1:(2,3)}
             parts = line.split(":")
             node = int(parts[0])
-            coords = list(map(int, parts[1].strip(" ()").split(',')))
+            coords = list(map(float, parts[1].strip(" ()").split(',')))
             nodes[node] = coords
         elif section == "edges":
             # e.g. {(1,2):3}
             parts = line.split(":")
             n1, n2 = map(int, parts[0].strip(" ()").split(','))
-            cost = int(parts[1])          
+            cost = round(float(parts[1]))         
             edges.setdefault((n1, n2), cost)
         elif section == "origin":
             origin = int(line)
